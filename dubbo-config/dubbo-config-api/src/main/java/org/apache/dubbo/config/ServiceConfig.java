@@ -367,16 +367,17 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
     }
 
     public synchronized void export() {
-        checkAndUpdateSubConfigs();
+        checkAndUpdateSubConfigs(); // 检查必要的配置
 
         if (!shouldExport()) {
             return;
         }
 
+        // 延迟注册
         if (shouldDelay()) {
             DELAY_EXPORT_EXECUTOR.schedule(this::doExport, getDelay(), TimeUnit.MILLISECONDS);
         } else {
-            doExport();
+            doExport(); // 立即注册
         }
     }
 
@@ -413,7 +414,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         if (StringUtils.isEmpty(path)) {
             path = interfaceName;
         }
-        doExportUrls();
+        doExportUrls(); // 核心: 启动 + 注册
     }
 
     private void checkRef() {
@@ -450,16 +451,20 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void doExportUrls() {
+        // 加载注册中心, 将服务注册到所有的注册中心里
         List<URL> registryURLs = loadRegistries(true);
+        // 此处的 protocols 为要注册的协议
         for (ProtocolConfig protocolConfig : protocols) {
             String pathKey = URL.buildKey(getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), group, version);
             ProviderModel providerModel = new ProviderModel(pathKey, ref, interfaceClass);
+            // 保存到 ApplicationModel.PROVIDED_SERVICES
             ApplicationModel.initProviderModel(pathKey, providerModel);
-            doExportUrlsFor1Protocol(protocolConfig, registryURLs);
+            doExportUrlsFor1Protocol(protocolConfig, registryURLs); // 核心: 启动 + 注册
         }
     }
 
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
+        // 协议名, 默认为 dubbo
         String name = protocolConfig.getName();
         if (StringUtils.isEmpty(name)) {
             name = DUBBO;
@@ -558,8 +563,9 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             }
         }
         // export service
-        String host = this.findConfigedHosts(protocolConfig, registryURLs, map);
-        Integer port = this.findConfigedPorts(protocolConfig, name, map);
+        String host = this.findConfigedHosts(protocolConfig, registryURLs, map); // 服务 IP
+        Integer port = this.findConfigedPorts(protocolConfig, name, map);        // 服务端口
+        // 将服务信息转化为 URL 对象, 将来注册服务都是从 URL 中解析的
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
 
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
@@ -568,15 +574,18 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                     .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
         }
 
+        // scope 默认为 null, 当 scope 配置为 none 时不注册
         String scope = url.getParameter(SCOPE_KEY);
         // don't export when none is configured
         if (!SCOPE_NONE.equalsIgnoreCase(scope)) {
 
             // export to local if the config is not remote (export to remote only when config is remote)
+            // 如果没有明确配置为 remote, 则向本地注册服务
             if (!SCOPE_REMOTE.equalsIgnoreCase(scope)) {
                 exportLocal(url);
             }
             // export to remote if the config is not local (export to local only when config is local)
+            // 如果配置不是 local, 则向远程注册服务
             if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {
                 if (CollectionUtils.isNotEmpty(registryURLs)) {
                     for (URL registryURL : registryURLs) {
@@ -606,6 +615,11 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
+                        // 注册服务
+                        // 注意: 这里的 protocol 是自适应类(Protocol$Adaptive), url 里面的协议参数是 registry
+                        // 所以实际上是调用了 RegistryProtocol.export
+                        // 1. 在 RegistryProtocol.export 里调用了 DubboProtocol.export 启动服务
+                        // 2. 在 RegistryProtocol.export 里调用了 Registry.register    注册服务
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         exporters.add(exporter);
                     }

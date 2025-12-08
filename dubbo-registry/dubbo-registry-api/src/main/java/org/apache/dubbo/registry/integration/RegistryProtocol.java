@@ -193,8 +193,11 @@ public class RegistryProtocol implements Protocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
+        // 注册中心 URL, 当前 URL 中的 protocol = registry, 将 protocol 替换成注册中心的协议 (如 zookeeper)
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
+        // 服务提供者 URL, 与 registryUrl 对比, 这里的 protocol 变成了 dubbo
+        // 数据示例 dubbo://172.16.184.39:20880/com.zzw.DemoService?anyhost=true&application=provider-app&bean.name=com.zzw.DemoService&bind.ip=172.16.184.39&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.zzw.DemoService&methods=sayHello,sayHello2&pid=92866&release=2.7.4.1&side=provider&timestamp=1644830907146
         URL providerUrl = getProviderUrl(originInvoker);
 
         // Subscribe the override data
@@ -207,11 +210,15 @@ public class RegistryProtocol implements Protocol {
 
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
         //export invoker
-        final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
+        // 导出 invoker, 这里面再次通过 Protocol$Adaptive 调用 Protocol 的扩展点
+        // 因为 providerUrl 里的 protocol 已经变为了 dubbo, 所以这里面实际上调用了 DubboProtocol.export
+        // 在 DubboProtocol.export() 里, 实现了服务的启动
+        final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl); // 服务的启动
 
         // url to registry
+        // 注册服务: 核心方法在 register() 里
         final Registry registry = getRegistry(originInvoker);
-        final URL registeredProviderUrl = getRegisteredProviderUrl(providerUrl, registryUrl);
+        final URL registeredProviderUrl = getRegisteredProviderUrl(providerUrl, registryUrl);    // 服务的注册
         ProviderInvokerWrapper<T> providerInvokerWrapper = ProviderConsumerRegTable.registerProvider(originInvoker,
                 registryUrl, registeredProviderUrl);
         //to judge if we need to delay publish

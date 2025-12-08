@@ -107,11 +107,12 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
 
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
+        // 服务未暴露且未移除
         if (!isExported() && !isUnexported()) {
             if (logger.isInfoEnabled()) {
                 logger.info("The service ready on spring started. service: " + getInterface());
             }
-            export();
+            export(); // 核心: 启动 + 注册
         }
     }
 
@@ -333,9 +334,9 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
      */
     @Override
     public void export() {
-        super.export();
+        super.export(); // ServiceConfig#export
         // Publish ServiceBeanExportedEvent
-        publishExportEvent();
+        publishExportEvent(); // 这里可以通过订阅 ServiceBeanExportedEvent, 来定制服务暴露后的业务处理逻辑
     }
 
     /**
