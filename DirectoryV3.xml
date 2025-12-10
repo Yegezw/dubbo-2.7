@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<trees>
+    <tree path="/dubbo-common" title="核心"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/compiler" title="动态编译"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/config" title="配置"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/constants" title="常量"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/extension" title="SPI"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/convert" title="类型转换器"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/io" title="工具"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/threadlocal" title="工具"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/threadpool" title="工具"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/timer" title="时间轮"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/utils" title="工具"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/logger" title="日志集成"/>
+    <tree path="/dubbo-remoting" title="远程通信"/>
+    <tree path="/dubbo-rpc" title="一对一"/>
+    <tree path="/dubbo-cluster" title="集群"/>
+    <tree path="/dubbo-registry" title="注册中心"/>
+    <tree path="/dubbo-monitor" title="监控"/>
+    <tree path="/dubbo-config" title="配置"/>
+    <tree path="/dubbo-metadata" title="元数据"/>
+    <tree path="/dubbo-configcenter" title="动态配置"/>
+    <tree path="/dubbo-demo" title="示例"/>
+</trees>
