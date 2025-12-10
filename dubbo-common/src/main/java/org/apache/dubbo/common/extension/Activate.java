@@ -24,6 +24,30 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/*
+ * 可以使用 @Activate 来控制 SPI 扩展实现在什么场景下加载生效, 相比于任何场景下都生效, 能精确的控制扩展实现的生效条件会让实现变得更灵活
+ * 1. group: 修饰的实现类是在 Provider 端被激活还是在 Consumer 端被激活
+ * 2. value: 修饰的实现类只在 URL 参数中出现指定的 key 时才会被激活
+ * 3. order: 用来确定扩展实现类的排序
+ *
+ * 不加 @Activate 注解, getActivateExtension() 时不会加载, 其它 getExtension() 方法仍可正常加载
+ *
+ * @Activate
+ * 不加任何参数, 表示在 getActivateExtension() 时无条件自动返回
+ *
+ * @Activate(group="provider")
+ * group 支持 consumer、provider 两个固定值, getActivateExtension() 调用加载扩展点时自动过滤
+ * provider 表示在提供者端会被加载、consumer 表示在消费者端会被加载
+ *
+ * @Activate(value="cache")
+ * URL 参数中有 cache 这个 key 时, 调用 getActivateExtension() 才会加载
+ *
+ * @Activate(value="cache:test")
+ * URL 参数中有 cache 这个 key 并且值为 test 时, 调用 getActivateExtension() 才会加载
+ *
+ * 排序同样使用 @Activate 注解设置, order 值越小加载优先级越高, @Activate(order=100) > @Activate(order=200) 
+ */
+
 /**
  * Activate. This annotation is useful for automatically activate certain extensions with the given criteria,
  * for examples: <code>@Activate</code> can be used to load certain <code>Filter</code> extension when there are

@@ -67,8 +67,14 @@ public class AdaptiveClassCodeGenerator {
 
     private static final String CODE_EXTENSION_METHOD_INVOKE_ARGUMENT = "arg%d";
 
+    /**
+     * 扩展接口
+     */
     private final Class<?> type;
 
+    /**
+     * 记录了 {@link AdaptiveClassCodeGenerator#type} 这个扩展接口上 {@link SPI} 注解的 {@link SPI#value()} 值, 也就是默认扩展名
+     */
     private String defaultExtName;
 
     public AdaptiveClassCodeGenerator(Class<?> type, String defaultExtName) {
@@ -88,15 +94,17 @@ public class AdaptiveClassCodeGenerator {
      */
     public String generate() {
         // no need to generate adaptive class since there's no adaptive method found.
+        // 如果该接口中没有方法被 @Adaptive 注解修饰, 直接抛出异常
         if (!hasAdaptiveMethod()) {
             throw new IllegalStateException("No adaptive method exist on extension " + type.getName() + ", refuse to create the adaptive class!");
         }
 
         StringBuilder code = new StringBuilder();
-        code.append(generatePackageInfo());
-        code.append(generateImports());
-        code.append(generateClassDeclaration());
+        code.append(generatePackageInfo());      // 生成 package xxx
+        code.append(generateImports());          // 生成 import xxx
+        code.append(generateClassDeclaration()); // 生成 class 声明语句
 
+        // 生成方法
         Method[] methods = type.getMethods();
         for (Method method : methods) {
             code.append(generateMethod(method));
@@ -158,7 +166,7 @@ public class AdaptiveClassCodeGenerator {
     private String generateMethod(Method method) {
         String methodReturnType = method.getReturnType().getCanonicalName();
         String methodName = method.getName();
-        String methodContent = generateMethodContent(method);
+        String methodContent = generateMethodContent(method); // 生成方法内容
         String methodArgs = generateMethodArguments(method);
         String methodThrows = generateMethodThrows(method);
         return String.format(CODE_METHOD_DECLARATION, methodReturnType, methodName, methodArgs, methodThrows, methodContent);
@@ -198,35 +206,49 @@ public class AdaptiveClassCodeGenerator {
      * generate method content
      */
     private String generateMethodContent(Method method) {
+        // 该方法上必须有 @Adaptive 注解修饰
         Adaptive adaptiveAnnotation = method.getAnnotation(Adaptive.class);
         StringBuilder code = new StringBuilder(512);
         if (adaptiveAnnotation == null) {
+            // 没有 @Adaptive 注解修饰, 生成异常信息
             return generateUnsupported(method);
         } else {
+            // 获取 URL 在参数列表上的索引
             int urlTypeIndex = getUrlTypeIndex(method);
 
             // found parameter in URL type
             if (urlTypeIndex != -1) {
                 // Null Point check
+                // 如果参数列表上存在 URL, 生成对 URL 进行空检查
                 code.append(generateUrlNullCheck(urlTypeIndex));
             } else {
                 // did not find parameter in URL type
+                // 如果参数列表不存在 URL 类型的参数, 那么就看参数列表上参数对象中是否包含 getUrl 方法
+                // 有的话, 生成 URL 空检查
                 code.append(generateUrlAssignmentIndirectly(method));
             }
 
+            // 解析 @Adaptive 注解上的 value 属性
             String[] value = getMethodAdaptiveValue(adaptiveAnnotation);
-
+            // 如果参数列表上有 Invocation 类型的参数, 生成空检查并获取 methodName
             boolean hasInvocation = hasInvocationArgument(method);
 
             code.append(generateInvocationArgumentNullCheck(method));
 
+            // 这段逻辑主要就是为了生成 extName(也就是扩展名)
+            // 分为多种情况
+            // 1. defaultExtName 是否存在
+            // 2. 参数中是否存在 invocation 类型参数
+            // 3. 是否是为 protocol 生成代理
+            // 为什么要对 protocol 单独考虑了 ? 因为 URL 中有获取 protocol 值的方法
             code.append(generateExtNameAssignment(value, hasInvocation));
             // check extName == null?
             code.append(generateExtNameNullCheck(value));
 
+            // 生成获取扩展(使用 ExtensionLoader.getExtension 方法)
             code.append(generateExtensionAssignment());
 
-            // return statement
+            // return statement 生成返回语句
             code.append(generateReturnAndInvocation(method));
         }
 
@@ -245,38 +267,52 @@ public class AdaptiveClassCodeGenerator {
      */
     private String generateExtNameAssignment(String[] value, boolean hasInvocation) {
         // TODO: refactor it
+        // 方法级别配置 > URL 参数 key1 > URL 参数 key2 > SPI 默认实现
         String getNameCode = null;
+        // 倒序遍历 @Adaptive 注解上的 value 属性
         for (int i = value.length - 1; i >= 0; --i) {
+            // 最后一个
             if (i == value.length - 1) {
                 if (null != defaultExtName) {
                     if (!"protocol".equals(value[i])) {
                         if (hasInvocation) {
+                            // 非 protocol 字段 + 有默认值 + 带 Invocation -> 取方法级参数
                             getNameCode = String.format("url.getMethodParameter(methodName, \"%s\", \"%s\")", value[i], defaultExtName);
                         } else {
+                            // 非 protocol 字段 + 有默认值 + 无 Invocation -> 取 URL 全局参数
                             getNameCode = String.format("url.getParameter(\"%s\", \"%s\")", value[i], defaultExtName);
                         }
                     } else {
+                        // protocol 字段 + 有默认值 -> 取协议名 (为空则用默认值)
                         getNameCode = String.format("( url.getProtocol() == null ? \"%s\" : url.getProtocol() )", defaultExtName);
                     }
                 } else {
                     if (!"protocol".equals(value[i])) {
                         if (hasInvocation) {
+                            // 非 protocol 字段 + 无默认值 + 带 Invocation  -> 取方法级参数
                             getNameCode = String.format("url.getMethodParameter(methodName, \"%s\", \"%s\")", value[i], defaultExtName);
                         } else {
+                            // 非 protocol 字段 + 无默认值 + 无 Invocation -> 取 URL 全局参数
                             getNameCode = String.format("url.getParameter(\"%s\")", value[i]);
                         }
                     } else {
+                        // protocol 字段 + 无默认值 -> 取协议名
                         getNameCode = "url.getProtocol()";
                     }
                 }
-            } else {
+            }
+            // 非最后一个
+            else {
                 if (!"protocol".equals(value[i])) {
                     if (hasInvocation) {
+                        // 非 protocol 字段 + 带 Invocation -> 取方法级参数, 取不到则降级为 defaultExtName
                         getNameCode = String.format("url.getMethodParameter(methodName, \"%s\", \"%s\")", value[i], defaultExtName);
                     } else {
+                        // 非 protocol 字段 + 无 Invocation -> 取 URL 全局参数, 取不到则降级为 getNameCode
                         getNameCode = String.format("url.getParameter(\"%s\", %s)", value[i], getNameCode);
                     }
                 } else {
+                    // protocol 字段 -> 取协议名, 取不到则降级为 getNameCode
                     getNameCode = String.format("url.getProtocol() == null ? (%s) : url.getProtocol()", getNameCode);
                 }
             }

@@ -21,4 +21,7 @@
     <tree path="/dubbo-metadata" title="元数据"/>
     <tree path="/dubbo-configcenter" title="动态配置"/>
     <tree path="/dubbo-demo" title="示例"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/URL.java" title="配置总线"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/URLBuilder.java" title="构造"/>
+    <tree path="/dubbo-common/src/main/java/org/apache/dubbo/common/URLStrParser.java" title="解析"/>
 </trees>
